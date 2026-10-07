@@ -125,9 +125,9 @@ relies on one.
         (Section~\ref{sec:l1}).
   \item A comparison of the per-polynomial weight vector with the total
         weight as an observable (Section~\ref{sec:l1vector}).
-  \item Two negative results on countermeasures: fixed-iteration signing does
-        not change the hint-weight distribution by argument, and we observe no
-        change in a Python model of the signing algorithm (Section~\ref{sec:fis}), and
+  \item Two negative results on countermeasures: fixed-iteration signing
+        cannot change the hint-weight distribution, by argument
+        (Section~\ref{sec:fis}), and
         bounded-weight signing suppresses the total-weight channel but not the
         per-polynomial one (Section~\ref{sec:bw}).
   \item A statement, under an explicitly idealized oracle, of what exact
@@ -397,16 +397,8 @@ Fixed-iteration signing runs a constant number of signing attempts and selects
 the first valid one in constant time.  It removes the dependence of signing
 time on the number of rejections.  It cannot change the distribution of the
 hint: the selected attempt is an ordinary accepted attempt, and the selection
-criterion is validity, not hint weight.
-
-We checked this on a fixed-iteration variant with ML-DSA-44 parameters and 64
-slots (an unpublished design by the author), simulated with a
-Python model of the signing algorithm that is not byte-compatible with
-FIPS~204: 50 keys $\times$ 500 signatures.  The between-key spread is $4.96$
-and the grand mean $62.57$, against $4.40$ and $62.76$ for ML-DSA-44 in
-Table~\ref{tab:l1}.  The ANOVA gives $F = 8.94$ ($p = 3.2\times10^{-63}$); $F$
-is lower than in Table~\ref{tab:l1} because there are four times fewer
-signatures per key.
+criterion is validity, not hint weight.  This is an argument, not a
+measurement: we did not simulate a fixed-iteration signer.
 
 % ──────────────────────────────────────────────────────────────────────────
 \section{What an Idealized Oracle on the Ring Products Would Give}
@@ -437,7 +429,14 @@ With keys and oracle answers produced by a Python model
 $\tzero$, in about 17~s of exact Gaussian elimination in Python (script
 \texttt{recover\_t0\_real.py}).  Adding one answer on $c\,\sone$ yields all
 3,072 coefficients of $(\tzero, \sone, \sz)$ in about 35~s (script
-\texttt{full\_key\_recovery\_real.py}).  The recovered values equal the generated key.  A toy instance
+\texttt{full\_key\_recovery\_real.py}).  The recovered values equal the generated key,
+and the key signs: with a fresh random seed in place of the secret seed, 20 of 20
+signatures made with it are accepted by a verifier that uses only the public key,
+which rejects 20 of 20 signatures made with a key differing in one coefficient
+(script \texttt{verify\_recovered\_key.py}).  For this check the model's
+$\mathsf{Decompose}$ is replaced by that of FIPS~204: the model does not wrap the
+top high-bits value to $0$, and most signatures it produces fail a conformant
+verifier.  A toy instance
 ($N = 4$) with a weaker oracle, one bit per coefficient telling whether
 $|(c\,\tzero)_{k,j}| \ge \gamma_2$, is solved by exhaustive search
 (\texttt{recover\_key.py}).
@@ -476,9 +475,9 @@ $(\tzero)_k[m]$ up to a scale factor.
 
 We ran this with \texttt{dilithium\_sim.py} at ML-DSA-44 parameters and
 $M = 3{,}000$ signatures (script \texttt{l2d\_differential\_test.py}).  The
-estimate has Pearson correlation between $0.990$ and $0.993$ with the true $(\tzero)_k$ for the four
-polynomials, and between $-0.06$ and $-0.01$ with the $\tzero$ of an unrelated
-key.  This simple estimator does not reach exact coefficients.
+estimate has Pearson correlation of $0.99$ with the true $(\tzero)_k$ for each of
+the four polynomials, and below $0.07$ in absolute value with the $\tzero$ of an
+unrelated key; signing is randomized, so the third decimal varies between runs.  This simple estimator does not reach exact coefficients.
 Azevedo Oliveira et al.\ \cite{azevedo2024uncompressing} do, with a finer
 method and 200,000 to 500,000 signatures; our estimate, obtained in
 simulation, is an independent and cruder confirmation of the leakage they
@@ -610,10 +609,11 @@ signatures share information.  Both are unrelated to the hint weight.
   \item \textbf{Model.}  Equation~\eqref{eq:model} is heuristic.  The residual
         analysis has the resolution of 2,000 signatures per key; a smaller
         second-order effect would go unseen.
-  \item \textbf{Simulations.}  Sections~\ref{sec:fis} and~\ref{sec:oracle}
-        rely on Python models of the signing algorithm that are not
-        byte-compatible with FIPS~204.  The oracle is exact and noise-free; no
-        device was measured.
+  \item \textbf{Simulations.}  Section~\ref{sec:oracle} relies on a Python
+        model of the signing algorithm that is not byte-compatible with
+        FIPS~204; its $\mathsf{Decompose}$ also deviates at one boundary.  The
+        oracle is exact and noise-free; no device was measured.
+        Section~\ref{sec:fis} is an argument, without simulation.
   \item \textbf{Mitigation.}  Bounded-weight signing was evaluated for its
         effect on the hint weight only, not for its effect on the security
         argument of the scheme.
@@ -633,8 +633,8 @@ total weight, a single-signature classification lift of at most $1.8$ among
 200 keys, and thousands of signatures to separate two typical keys.  It does
 not threaten the signing key and is consistent with the known fact that
 $\tzero$ leaks from signatures.  The practical consequence we identify is a
-weak linkability fingerprint.  We observe no change under fixed-iteration
-signing in our Python model; filtering on the total weight reduces the
+weak linkability fingerprint.  Fixed-iteration signing cannot change it
+(Section~\ref{sec:fis}); filtering on the total weight reduces the
 total-weight channel and leaves the per-polynomial one; we found no filter-based
 way to remove it entirely.
 
@@ -645,8 +645,6 @@ random source and \texttt{run\_all.sh}), the raw per-polynomial weights of the
 \url{https://github.com/dom-omg/ml-dsa-hint-weight}.
 The script \texttt{paper\_numbers.py} recomputes every figure of
 Sections~\ref{sec:model}, \ref{sec:l1} and \ref{sec:bw} from the raw files.
-The fixed-iteration figures come from the script
-\texttt{full\_statistical\_analysis.py}.
 
 \section*{Acknowledgments}
 

@@ -14,8 +14,8 @@ The LaTeX source is in `paper/`.
 | `scripts/paper_numbers.py` | Recomputes every figure of Sections 3, 4 and 7.1 of the paper from the raw files. |
 | `scripts/csv_to_npz.py` | Converts the harness output to the `.npz` files above. |
 | `IRONPROOF_50KEY_2000SIG_ANOVA.json` | Earlier independent ML-DSA-44 run (50 keys × 2,000 signatures, GCC 13.3.0, Linux aarch64), cited in Section 4.1. |
-| `full_statistical_analysis.py`, `fast_sign.py`, `results/statistical_report.json` | Fixed-iteration signing figures of Section 5. They use a Python model of the signing algorithm that is **not** byte-compatible with FIPS 204. The script calls the variant PRISM-DSA. |
-| `dilithium_sim.py`, `params.py`, `ring.py`, `recover_t0_real.py`, `full_key_recovery_real.py`, `recover_key.py`, `l2d_differential_test.py` | Section 6. Same Python model. The oracle is simulated, exact and noise-free; no device was measured. |
+| `dilithium_sim.py`, `params.py`, `ring.py`, `recover_t0_real.py`, `full_key_recovery_real.py`, `recover_key.py`, `l2d_differential_test.py` | Section 6. A Python model of the signing algorithm, not byte-compatible with FIPS 204; its Decompose does not wrap the top high-bits value to 0. The oracle is simulated, exact and noise-free, and computed from the secret key; no device was measured. |
+| `verify_recovered_key.py` | Section 6: signs with the key determined from the oracle and checks the signatures with a public-key-only verifier, using the FIPS 204 Decompose. |
 
 ## Reproduce the figures from the raw data
 
