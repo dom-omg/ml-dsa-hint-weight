@@ -1,31 +1,26 @@
 """
-Ironproof-PQC: Full ML-DSA Private Key Recovery — Clean End-to-End Demo
-=====================================================================
+Idealized oracle, toy parameters (Section 6 of the paper): ML-DSA key determined
+from a one-bit-per-coefficient oracle on c*t0.
 
-SHOWS ANTHONY:
-  Give me the public key + timing measurements from the signing device.
-  I give you back s1, s2, t0 — the full private key.
+NOT AN ATTACK. The oracle answers are computed from the secret key sk.t0; nothing
+here is measured on a device or derived from public signatures.
 
-ORACLE (one measurement per signing attempt):
-  For each polynomial k in {0..K-1}, coefficient i in {0..N-1}:
-    fired[k][i] = ( |c · t0[k][i]| >= GAMMA2 )
+ORACLE (assumed, one answer per signing attempt):
+  fired[k][i] = ( |c * t0[k][i]| >= GAMMA2 )
+  i.e. which coefficient of c*t0 fails the rejection test. The reference
+  implementation states that leaking which coefficient led to a rejection is
+  acceptable; whether a physical channel delivers this bit exactly is not
+  addressed here.
 
-  This is per-coefficient check-3 leakage.
-  liboqs sign.c line 501 (verbatim): "It is fine (and prohibitively expensive
-  to avoid) to leak the result of the norm check and which polynomial in z
-  caused a rejection. It would even be okay to leak which coefficient led to
-  rejection as the candidate signature will be discarded anyway."
-
-NO CHEATS:
-  - Phase 1 (t0):  sk.t0 used ONLY to simulate the timing measurement.
-                   Attacker observes equivalent data from power/timing trace.
-  - Phase 2 (s1, s2): uses ONLY public key (rho, t1) + recovered t0.
-                   sk.s1 and sk.s2 never touched.
+STEPS:
+  1. t0: exhaustive search over the candidates consistent with the oracle bits.
+  2. s1, s2: exhaustive search from the public key (rho, t1) and t0.
+     Feasible only because the parameters are tiny.
 
 PARAMS: TINY_DEMO (N=4, K=2, L=2, D=2, ETA=1, GAMMA2=3)
   t0 search space : 4^8 = 65,536
   s1 search space : 3^8 = 6,561
-  Runtime         : < 1 second total
+These parameters are far below ML-DSA's; the search does not scale to them.
 """
 
 from __future__ import annotations
@@ -59,10 +54,8 @@ def measure_check3_oracle(
     """
     Simulate K*N-bit per-coefficient check-3 measurement.
 
-    In a real attack this comes from a power/EM trace or fine-grained
-    timing (one lane per polynomial). Here we compute it from sk.t0
-    exactly as a physical measurement would reveal it — no other part
-    of sk is used.
+    The answers are computed from sk.t0 (assumed oracle, not a measurement);
+    no other part of sk is used.
 
     Returns list of { c: list[int], fired: tuple[bool,...] }
     where fired[k*N+i] = (|ct0[k][i]| >= GAMMA2).
@@ -236,7 +229,7 @@ def main() -> None:
 
     print()
     print(BANNER)
-    print("Ironproof-PQC — FULL ML-DSA PRIVATE KEY RECOVERY")
+    print("Idealized oracle, toy parameters (N=4): key from one-bit oracle answers")
     print(BANNER)
     print(f"  Algorithm : ML-DSA (Dilithium) variant")
     print(f"  Params    : {p.name}  N={p.N}  K={p.K}  L={p.L}  Q={p.Q}")
@@ -255,7 +248,7 @@ def main() -> None:
     print(f"  s2  = {[list(sk.s2[k]) for k in range(p.K)]}")
     print(f"  t0  = {[list(sk.t0[k]) for k in range(p.K)]}")
     print()
-    print("ATTACKER SEES ONLY:")
+    print("PUBLIC INPUTS (plus the oracle answers, computed from sk.t0):")
     print(f"  pk.t1 = {[list(pk.t1[k]) for k in range(p.K)]}")
     print(f"  pk.rho (public seed for A)")
 
@@ -307,26 +300,26 @@ def main() -> None:
     all_ok = t0_match and s1_match and s2_match
     print(f"\n{BANNER}")
     if all_ok:
-        print("  ██████  FULL PRIVATE KEY RECOVERED  ██████")
+        print("  Toy key determined from oracle answers and public key")
         print()
-        print(f"  t0  recovered : {t0_rec}  ✓")
-        print(f"  s1  recovered : {s1_rec}  ✓")
-        print(f"  s2  recovered : {s2_rec}  ✓")
+        print(f"  t0  : {t0_rec}")
+        print(f"  s1  : {s1_rec}")
+        print(f"  s2  : {s2_rec}")
         print()
         print(f"  Phase 1 (t0 via oracle + Z3)   : {phase1_ms:.0f}ms")
         print(f"  Phase 2 (s1+s2 brute-force)    : {phase2_ms:.0f}ms")
         print()
-        print("  ORACLE: per-coefficient check-3 timing")
-        print("  SOURCE: liboqs sign.c line 501 — explicitly documented")
-        print("  CHEATS: none — sk.t0 used only to simulate the measurement")
-        print("          sk.s1 / sk.s2 never accessed during recovery")
+        print("  ORACLE: assumed, exact, computed from sk.t0 (not a measurement)")
+        print("  PARAMS: toy (N=4); does not scale to ML-DSA parameters")
+        print("  sk.t0 is used to produce the oracle answers")
+        print("  sk.s1 / sk.s2 are not read by steps 1-2")
     else:
         print("  Partial recovery — see above")
     print(BANNER)
 
     # Save artifact
     artifact = {
-        "finding": "Ironproof-PQC full ML-DSA private key recovery",
+        "finding": "toy-parameter key determination from an assumed exact oracle",
         "oracle": "per-coefficient check-3 timing (K*N bits/attempt)",
         "liboqs_citation": "sign.c line 501: fine to leak which coefficient caused rejection",
         "params": {"name": p.name, "N": p.N, "K": p.K, "L": p.L, "D": p.D, "GAMMA2": p.GAMMA2, "Q": p.Q},
@@ -340,9 +333,9 @@ def main() -> None:
         "timing_ms": {"phase1": round(phase1_ms), "phase2": round(phase2_ms)},
         "no_cheats": "sk.t0 used only for oracle simulation. sk.s1/sk.s2 never used.",
     }
-    with open("IRONPROOF_KEY_RECOVERY_CLEAN.json", "w") as f:
+    with open("toy_oracle_result.json", "w") as f:
         json.dump(artifact, f, indent=2)
-    print(f"\n  [Saved: IRONPROOF_KEY_RECOVERY_CLEAN.json]")
+    print(f"\n  [Saved: toy_oracle_result.json]")
 
 
 if __name__ == "__main__":

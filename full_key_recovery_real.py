@@ -1,25 +1,18 @@
 """
-Ironproof-PQC: Full ML-DSA-44 Key Recovery at REAL Parameters (N=256)
-===================================================================
+Idealized oracle at ML-DSA-44 parameters (Section 6 of the paper): the full key
+(s1, s2, t0) determined from one exact oracle answer on c*t0 and one on c*s1.
 
-Three-phase attack at DILITHIUM2 / ML-DSA-44 parameters (N=256, K=4, L=4).
+NOT AN ATTACK. Both oracle answers are computed from the secret key; nothing
+here is measured on a device or derived from public signatures. Published
+side-channel attacks recover such intermediate values partially and with noise;
+obtaining the exact values assumed here is not addressed.
 
-ORACLE MODEL (software — same model as recover_t0_real.py):
-  Phase 1: oracle returns exact c·t0[k][i] values per coefficient
-  Phase 3: oracle returns exact c·s1[l][i] values per coefficient
-
-  In a physical attack: template/horizontal power analysis on the NTT
-  multiplication step of the target device running ML-DSA.
-  Here: computed from sk during signing simulation (software oracle).
-
-PHASES:
-  1. t0 via c·t0 oracle → polynomial inversion M(c)·t0 = ct0 mod Q  [1 obs]
-  2. s2 algebraically: s2 = 2^D·t1 + t0 - A·s1  (once s1 known)
-  3. s1 via c·s1 oracle → polynomial inversion M(c)·s1 = cs1 mod Q  [1 obs/poly]
-
-RESULT:
-  Full private key (s1, s2, t0) recovered at N=256.
-  Runtime: < 5 seconds (dominated by 8 negacyclic matrix inversions).
+STEPS:
+  1. t0 from c*t0: solve M(c) t0 = ct0 mod Q (M(c) the negacyclic matrix of c).
+  2. s1 from c*s1: same linear system.
+  3. s2 = 2^D t1 + t0 - A s1 (key-generation identity; needs t0).
+This is linear algebra and touches no lattice problem: exact access to both
+products at one signing attempt determines the key.
 """
 
 from __future__ import annotations
@@ -95,12 +88,12 @@ def invert_from_product(c: list[int], cx: list[int], N: int, Q: int) -> list[int
     return [center(int(v), Q) for v in x_vec]
 
 
-# ── Software oracle (simulates power trace on reference implementation) ───────
+# ── Assumed oracle: exact products computed from the secret key ──────────────
 
 def oracle_ct0(p: DilithiumParams, sk: SecretKey, n_obs: int = 1) -> list[dict]:
     """
     Software oracle: returns exact c·t0[k][i] per coefficient.
-    Physical equivalent: template attack on c·t0 NTT multiplication.
+    Computed from sk.t0; not a measurement.
     """
     A   = expand_A(sk.rho, p.K, p.L, p.N, p.Q)
     obs = []
@@ -124,7 +117,7 @@ def oracle_ct0(p: DilithiumParams, sk: SecretKey, n_obs: int = 1) -> list[dict]:
 def oracle_cs1(p: DilithiumParams, sk: SecretKey, n_obs: int = 1) -> list[dict]:
     """
     Software oracle: returns exact c·s1[l][i] per coefficient.
-    Physical equivalent: template attack on c·s1 NTT multiplication during signing.
+    Computed from sk.s1; not a measurement.
     """
     A   = expand_A(sk.rho, p.K, p.L, p.N, p.Q)
     obs = []
@@ -293,11 +286,11 @@ def main() -> None:
 
     print()
     print(BANNER)
-    print("Ironproof-PQC — FULL KEY RECOVERY AT REAL ML-DSA-44 (N=256)")
+    print("Idealized oracle, ML-DSA-44 (N=256): key from exact c*t0 and c*s1 answers")
     print(BANNER)
     print(f"  Params  : {p.name}  N={p.N}  K={p.K}  L={p.L}  Q={p.Q}")
     print(f"  D={p.D}  ETA={p.ETA}  TAU={p.TAU}  GAMMA2={p.GAMMA2}")
-    print(f"  Oracle  : software (simulates NTT power trace on reference impl)")
+    print(f"  Oracle  : assumed, exact, computed from the secret key (not a measurement)")
     print(f"  Target  : full private key (s1, s2, t0) — {(p.K+p.L)*p.N} secret coefficients")
     print()
 
@@ -335,23 +328,23 @@ def main() -> None:
     ok = verify_full_key(p, sk, t0_rec, s1_rec, s2_rec)
 
     print(f"\n{BANNER}")
-    print(f"  FULL KEY RECOVERY — {'EXACT ✓' if ok else 'FAILED ✗'}")
+    print(f"  Key from oracle answers — {'equal to the generated key' if ok else 'MISMATCH'}")
     print(BANNER)
     print(f"  t0 : {p.K}×{p.N} = {p.K*p.N:,} coefficients   Phase 1  {t1_ms:.0f}ms")
     print(f"  s1 : {p.L}×{p.N} = {p.L*p.N:,} coefficients   Phase 3  {t3_ms:.0f}ms")
     print(f"  s2 : {p.K}×{p.N} = {p.K*p.N:,} coefficients   Phase 2  {t2_ms:.0f}ms  (algebraic)")
     print(f"  ─────────────────────────────────────────────────────")
-    print(f"  Total: {(p.K+p.L+p.K)*p.N:,} secret coefficients recovered in {total_ms:.0f}ms")
+    print(f"  Total: {(p.K+p.L+p.K)*p.N:,} coefficients determined in {total_ms:.0f}ms")
     print()
-    print(f"  KEY MATERIAL:")
+    print(f"  SIZES:")
     bits_t0 = p.D * p.K * p.N
     bits_s  = (p.ETA.bit_length() + 1) * (p.L + p.K) * p.N
     print(f"  t0 : {bits_t0:,} bits")
     print(f"  s1 : {p.L*p.N} coefficients ∈ [-{p.ETA},{p.ETA}]")
     print(f"  s2 : {p.K*p.N} coefficients ∈ [-{p.ETA},{p.ETA}]")
     print()
-    print(f"  Oracle model: software simulation of NTT power trace")
-    print(f"  Physical instantiation: template attack on target MCU — open problem")
+    print(f"  Oracle model: exact and noise-free, computed from the secret key")
+    print(f"  Obtaining such an oracle from a device: not addressed")
     print(BANNER)
 
 

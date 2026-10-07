@@ -1,30 +1,20 @@
 """
-Ironproof-PQC: t0 Recovery at REAL ML-DSA-44 Parameters (N=256)
-=============================================================
+Idealized oracle at ML-DSA-44 parameters (Section 6 of the paper): t0 determined
+from one exact oracle answer on c*t0.
 
-This demonstrates t0 recovery from a SINGLE power-trace observation
-using polynomial inversion — no brute force, no lattice reduction.
-
-ORACLE MODEL (stronger than timing, realistic for power analysis):
-  For one check-3 rejection event, the power trace reveals ct0[k][i]
-  exact values (not just fired/not). This is standard in template
-  attacks on embedded ML-DSA implementations.
+NOT AN ATTACK. The oracle answer c*t0 is computed from the secret key sk.t0;
+nothing here is measured on a device or derived from public signatures.
+Published side-channel attacks recover such intermediate values partially and
+with noise; obtaining the exact values assumed here is not addressed.
 
 MATH:
-  ct0[k] = c · t0[k]  (polynomial multiplication in Z_Q[x]/(x^N+1))
-  t0[k] = c^(-1) · ct0[k]  (polynomial inversion, exists with high prob)
+  ct0[k] = c * t0[k]  in Z_Q[x]/(x^N+1)
+  when the negacyclic matrix M(c) is invertible mod Q, t0[k] = M(c)^(-1) ct0[k].
+  This is linear algebra; it involves no lattice problem.
 
-RESULT:
-  t0 recovered exactly at N=256, K=4 from ONE observation per polynomial.
-  Runtime: < 50ms total (NTT-based inversion).
-
-THEN WHAT?
-  With t0 known + public key t1: t = 4096*t1 + t0 is fully known.
-  Recovering s1, s2 from t = A*s1 + s2 with ||s||_inf <= 2 is MODULE-LWE.
-  That's the core hardness assumption of ML-DSA — unsolved for N=256.
-
-  Partial key material recovered: t0 is 13*K*N = 13*4*256 = 13,312 bits.
-  Remaining: s1+s2 = (2+2)*ETA_bound*N ≈ 6,144 bits — needs novel algo.
+SCOPE:
+  t0 alone does not give the signing key: recovering s1, s2 from
+  t = A*s1 + s2 is Module-LWE. The Dilithium designers do not treat t0 as secret.
 """
 
 from __future__ import annotations
@@ -139,7 +129,7 @@ def recover_t0_from_ct0(
     return [int(x) % Q for x in t0_vec]
 
 
-# ─── Oracle simulation (power trace → actual ct0 values) ─────────────────────
+# ─── Assumed oracle: exact ct0 values computed from sk.t0 ───────────────────
 
 def read_ct0_from_power_trace(
     p: DilithiumParams,
@@ -147,11 +137,8 @@ def read_ct0_from_power_trace(
     n_obs: int = 1,
 ) -> list[dict]:
     """
-    Simulate reading actual ct0 values from a power/EM trace.
-
-    In a real attack: template attack or horizontal attack on the MCU
-    running ML-DSA extracts the intermediate ct0[k][i] values directly.
-    Here we compute them from sk.t0 (the secret being extracted).
+    Assumed oracle: returns the exact ct0 values, computed from sk.t0.
+    Not a measurement.
 
     Returns list of {c, ct0_vals} where ct0_vals[k][i] is the actual value.
     """
@@ -255,11 +242,11 @@ def main() -> None:
 
     print()
     print(BANNER)
-    print("Ironproof-PQC — t0 RECOVERY AT REAL ML-DSA-44 (N=256)")
+    print("Idealized oracle, ML-DSA-44 (N=256): t0 from one exact c*t0 answer")
     print(BANNER)
     print(f"  Params : {p.name}  N={p.N}  K={p.K}  L={p.L}  Q={p.Q}")
     print(f"  D={p.D}  GAMMA2={p.GAMMA2}  TAU={p.TAU}  ETA={p.ETA}")
-    print(f"  Oracle : power trace → actual ct0[k][i] values")
+    print(f"  Oracle : assumed, exact c*t0 computed from sk.t0 (not a measurement)")
     print()
 
     seed = hashlib.sha256(b"ironproof-real-demo").digest()
@@ -269,11 +256,11 @@ def main() -> None:
     print("TARGET t0[0][:8] =", t0_true[0][:8], "...")
     print("(t0 has", p.K * p.N, "coefficients total — showing first 8)")
     print()
-    print("ATTACKER SEES: pk.t1, pk.rho only")
+    print("INPUTS: public key (t1, rho) and the oracle answer below")
 
     # Collect oracle observations
     print(f"\n{SEP}")
-    print("ORACLE COLLECTION — 1 power trace observation")
+    print("ORACLE — 1 exact answer, computed from sk.t0")
     print(SEP)
     t0_w = time.time()
     obs = read_ct0_from_power_trace(p, sk, n_obs=5)
@@ -286,23 +273,23 @@ def main() -> None:
 
     print(f"\n{BANNER}")
     if t0_rec is not None:
-        print("  t0 RECOVERED — ALL K*N COEFFICIENTS EXACT")
+        print("  t0 determined: all K*N coefficients equal the generated key")
         print(f"  {p.K} polynomials × {p.N} coefficients = {p.K*p.N} total coefficients")
         print(f"  Runtime: {phase1_ms:.0f}ms")
         print()
         print("  Recovered t0[0][:8] =", t0_rec[0][:8], "...")
         print("  True      t0[0][:8] =", t0_true[0][:8], "...")
         print()
-        print("  PARTIAL KEY MATERIAL RECOVERED:")
+        print("  WHAT THIS GIVES:")
         bits_t0 = p.D * p.K * p.N
         bits_s1s2 = (p.ETA.bit_length() + 1) * (p.L + p.K) * p.N
-        print(f"  t0  : {p.K*p.N} coefficients × {p.D} bits = {bits_t0:,} bits  ✓")
+        print(f"  t0  : {p.K*p.N} coefficients (not treated as secret by the designers)")
         print(f"  s1+s2: {(p.L+p.K)*p.N} coefficients — MODULE-LWE hardness")
         print()
-        print("  NEXT STEP FOR FULL KEY:")
-        print("  t = 2^D * t1 + t0 is now fully known (t1 public, t0 recovered)")
+        print("  NOT GIVEN: s1, s2")
+        print("  t = 2^D * t1 + t0 is known once t0 is")
         print("  t = A*s1 + s2 with ||s1||,||s2|| <= ETA=2 is MODULE-LWE")
-        print("  → Requires BKZ at block size ~400+ or novel algorithm")
+        print("  recovering s1, s2 from it is the Module-LWE problem")
         print("  → This is the open research problem")
     else:
         print("  t0 recovery failed — check oracle implementation")
