@@ -6,51 +6,25 @@ The key is determined by full_key_recovery_real.py (oracle answers computed from
 the secret key; see that file). A verifier that sees only the public key then
 checks signatures made with it. The verifier is first tested both ways: it must
 accept the honest signer and reject a wrong message and a key changed in one
-coefficient.
-
-The model in dilithium_sim.py does not wrap the top high-bits value of Decompose
-to 0, as FIPS 204 does, so most signatures it produces fail a conformant
-verifier. This script substitutes the FIPS 204 Decompose for the check.
+coefficient. Decompose and the challenge sampler of the model follow FIPS 204.
 """
 import contextlib
 import hashlib
 import io
 import os
 
-import dilithium_sim
 import full_key_recovery_real as fk
-import ring
 from dilithium_sim import SecretKey, _challenge, _pack_t1, _pack_w1, keygen, sign
 from params import DILITHIUM2 as p
-from ring import chknorm, expand_A, matmul_vec, poly_mul, poly_sub
+from ring import chknorm, decompose, expand_A, matmul_vec, poly_mul, poly_sub
 
 N_MSG = 20
 
 
-def decompose_fips(a, GAMMA2, Q):
-    """FIPS 204 Decompose: high bits in [0, (Q-1)/(2*GAMMA2) - 1]."""
-    ALPHA = 2 * GAMMA2
-    hi, lo = [], []
-    for v in a:
-        v %= Q
-        r0 = v % ALPHA
-        if r0 > ALPHA // 2:
-            r0 -= ALPHA
-        if v - r0 == Q - 1:
-            hi.append(0)
-            lo.append(r0 - 1)
-        else:
-            hi.append((v - r0) // ALPHA)
-            lo.append(r0)
-    return hi, lo
-
-
-ring.decompose = decompose_fips
-dilithium_sim.decompose = decompose_fips
 
 
 def use_hint(h, r):
-    r1, r0 = decompose_fips(r, p.GAMMA2, p.Q)
+    r1, r0 = decompose(r, p.GAMMA2, p.Q)
     m = (p.Q - 1) // (2 * p.GAMMA2)
     return [((a1 + 1) % m if a0 > 0 else (a1 - 1) % m) if hb else a1
             for hb, a1, a0 in zip(h, r1, r0)]

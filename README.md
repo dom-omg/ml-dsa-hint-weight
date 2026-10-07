@@ -13,9 +13,9 @@ The LaTeX source is in `paper/`.
 | `results/c_ref/mldsa{44,65,87}.npz` | Raw data of the paper: 200 keys × 2,000 signatures per parameter set, ordinary and bounded-weight signing, 2,400,000 signatures in all, with the norm of each polynomial of t0. |
 | `scripts/paper_numbers.py` | Recomputes every figure of Sections 3, 4 and 7.1 of the paper from the raw files. |
 | `scripts/csv_to_npz.py` | Converts the harness output to the `.npz` files above. |
-| `IRONPROOF_50KEY_2000SIG_ANOVA.json` | Earlier independent ML-DSA-44 run (50 keys × 2,000 signatures, GCC 13.3.0, Linux aarch64), cited in Section 4.1. |
-| `dilithium_sim.py`, `params.py`, `ring.py`, `recover_t0_real.py`, `full_key_recovery_real.py`, `recover_key.py`, `l2d_differential_test.py` | Section 6. A Python model of the signing algorithm, not byte-compatible with FIPS 204; its Decompose does not wrap the top high-bits value to 0. The oracle is simulated, exact and noise-free, and computed from the secret key; no device was measured. |
-| `verify_recovered_key.py` | Section 6: signs with the key determined from the oracle and checks the signatures with a public-key-only verifier, using the FIPS 204 Decompose. |
+| `legacy_mldsa44_linux_50x2000.json` | Earlier independent ML-DSA-44 run (50 keys × 2,000 signatures, GCC 13.3.0, Linux aarch64), cited in Section 4.1. |
+| `dilithium_sim.py`, `params.py`, `ring.py`, `recover_t0_real.py`, `full_key_recovery_real.py`, `l2d_differential_test.py` | Section 6. A Python model of the signing algorithm, not byte-compatible with FIPS 204 (hash inputs and encodings differ; Decompose and the challenge sampler follow the standard). The oracle is simulated, exact and noise-free, and computed from the secret key; no device was measured. |
+| `verify_recovered_key.py` | Section 6: signs with the key determined from the oracle and checks the signatures with a verifier that uses only the public key, after testing that verifier both ways. |
 
 ## Reproduce the figures from the raw data
 
@@ -25,7 +25,7 @@ Python 3 with NumPy and SciPy.
 python3 scripts/paper_numbers.py
 ```
 
-About 90 s on a laptop. The output is deterministic and is the source of every
+One to two minutes on a laptop. The output is deterministic and is the source of every
 number in Sections 3, 4 and 7.1.
 
 ## Re-collect the raw data

@@ -53,7 +53,7 @@ We find that the Hamming weight of each hint polynomial $\hint_k$ depends on
 the signing key: to first order it measures the Euclidean norm of
 $(\tzero)_k$, the low-order part of $\mathbf{t}$ that key generation leaves out
 of the public key.  A closed-form model predicts the per-key mean weight with
-Pearson $r$ between $0.96$ and $0.98$; once the norm is accounted for, we
+Pearson $r$ between $0.95$ and $0.98$; once the norm is accounted for, we
 detect no key-dependent signal above sampling noise.
 
 We measure the effect on the reference C implementation, with 200 keys and
@@ -63,8 +63,8 @@ ML-DSA-87 ($F = 30.1$, $10.3$, $11.1$).  The effect is weak: the key explains
 0.5\% to 1.5\% of the variance of the total weight.  A single signature
 identifies its key among 200 with $1.1$ to $1.3$ times chance accuracy from
 the total weight, and $1.5$ to $1.8$ times from the per-polynomial weight
-vector.  Separating two typical keys at significance $0.001$ takes about
-1,300 to 3,700 signatures per key.
+vector.  A one-sided test at significance $0.001$ separates two typical keys with
+probability one half after about 1,300 to 3,700 signatures per key.
 
 The hint weight does not endanger the signing key.  The Dilithium designers do not treat
 $\tzero$ as secret, and $\tzero$ is known to be recoverable from signatures
@@ -154,12 +154,13 @@ $[-\eta, \eta]$, expand $\boldA \in R_q^{K \times L}$ from a public seed, and
 compute $\mathbf{t} = \boldA \sone + \sz$.  Split
 $\mathbf{t} = 2^d\,\tone + \tzero$ with
 $\tzero \in (-2^{d-1}, 2^{d-1}]^{KN}$.  The public key holds $\tone$; the private
-key holds $(\sone, \sz, \tzero)$.
+key holds $(\sone, \sz, \tzero)$, together with $\rho$, a private seed and a hash of the
+public key.
 
 \paragraph{Signing.}
 Repeat until all checks pass:
 \begin{align*}
-  \boldy &\leftarrow R_q^L,\quad \|\boldy\|_\infty < \gamma_1, \qquad
+  \boldy &\leftarrow R_q^L,\quad \|\boldy\|_\infty \le \gamma_1, \qquad
   \boldw = \boldA \boldy,\\
   c &= \mathsf{SampleInBall}\big(H(\mu \,\|\, \HighBits(\boldw))\big), \qquad
   \boldz = \boldy + c\,\sone,\\
@@ -196,7 +197,7 @@ Summing over the $N$ coefficients:
 
 The model ignores the conditioning on acceptance and the truncation at
 $\omega$; it is a heuristic, not a theorem.  For a key with uniform $\tzero$
-it predicts a total weight of $63.4$, $38.7$ and $57.2$ for the three
+it predicts a total weight of $63.4$, $38.7$ and $57.1$ for the three
 parameter sets.
 
 \paragraph{Check.}
@@ -305,15 +306,16 @@ as the observed one ($p < 1/1001$).
 \paragraph{Sample complexity.}
 Table~\ref{tab:samples} gives three figures, all at significance $0.001$:
 the number of signatures per key after which the 200-key ANOVA rejects
-key-independence; the number per key needed to separate the two most extreme
-keys of the dataset; and the number per key needed to separate two keys whose
-means differ by one standard deviation of the per-key means.  The last two use
-a one-sided two-sample $z$-test, $n = 2\,(z_{0.999}\,\sigma_w/\Delta)^2$.  The
+key-independence; and, for the two most extreme keys of the dataset and for two
+keys whose means differ by one standard deviation of the per-key means, the
+number per key at which a one-sided two-sample $z$-test separates them with
+probability one half, $n = 2\,(z_{0.999}\,\sigma_w/\Delta)^2$.  For 80\% power
+the last two figures grow by a factor of about $1.6$.  The
 extreme pair is selected after the fact and is a best case, not a typical one.
 
 \begin{table}[h!]
 \centering
-\caption{Signatures per key needed at significance $0.001$.}
+\caption{Signatures per key at significance $0.001$ (pairs: one-sided test, power $0.5$).}
 \label{tab:samples}
 \begin{tabular}{lrrr}
 \toprule
@@ -426,20 +428,16 @@ $(\sone)_l$.  Then $\sz = 2^d\,\tone + \tzero - \boldA\,\sone$.
 \paragraph{Simulation.}
 With keys and oracle answers produced by a Python model
 (\texttt{dilithium\_sim.py}) at ML-DSA-44 parameters, one oracle answer on $c\,\tzero$ yields all 1,024 coefficients of
-$\tzero$, in about 17~s of exact Gaussian elimination in Python (script
+$\tzero$ in under 20~s of exact Gaussian elimination in Python (script
 \texttt{recover\_t0\_real.py}).  Adding one answer on $c\,\sone$ yields all
-3,072 coefficients of $(\tzero, \sone, \sz)$ in about 35~s (script
-\texttt{full\_key\_recovery\_real.py}).  The recovered values equal the generated key,
-and the key signs: with a fresh random seed in place of the secret seed, 20 of 20
-signatures made with it are accepted by a verifier that uses only the public key,
-which rejects 20 of 20 signatures made with a key differing in one coefficient
-(script \texttt{verify\_recovered\_key.py}).  For this check the model's
-$\mathsf{Decompose}$ is replaced by that of FIPS~204: the model does not wrap the
-top high-bits value to $0$, and most signatures it produces fail a conformant
-verifier.  A toy instance
-($N = 4$) with a weaker oracle, one bit per coefficient telling whether
-$|(c\,\tzero)_{k,j}| \ge \gamma_2$, is solved by exhaustive search
-(\texttt{recover\_key.py}).
+3,072 coefficients of $(\tzero, \sone, \sz)$ in under 40~s (script
+\texttt{full\_key\_recovery\_real.py}).  The values are accepted without
+reference to the key and then compared with it: they equal the generated key.
+The key also signs: with a fresh random seed in place of the secret seed, 20 of
+20 signatures made with it are accepted by a verifier that uses only the public
+key, which accepts 20 of 20 honest signatures and rejects 20 of 20 signatures
+made with a key differing in one coefficient (script
+\texttt{verify\_recovered\_key.py}).
 
 This does not touch Module-LWE: the oracle hands over the secret through a
 linear map.  It shows only that exact access to $c\,\tzero$ and $c\,\sone$ at one
@@ -453,8 +451,8 @@ and ML-DSA-87.  Even for ML-DSA-44 it almost never fires: the coefficients of
 $c\,\tzero$ have standard deviation about $14{,}800$, more than six standard
 deviations below $\gamma_2$.  The Dilithium specification considers it safe to
 reveal which rejection test failed and which coefficient violated the bound
-\cite[Section~5.5]{dilithium2021spec}, consistent with $\tzero$ not being
-treated as secret.
+\cite[Section~5.5]{dilithium2021spec}; we read this as consistent with $\tzero$
+not being treated as secret.
 \end{remark}
 
 \subsection{A Passive Estimate of $\tzero$}
@@ -476,8 +474,10 @@ $(\tzero)_k[m]$ up to a scale factor.
 We ran this with \texttt{dilithium\_sim.py} at ML-DSA-44 parameters and
 $M = 3{,}000$ signatures (script \texttt{l2d\_differential\_test.py}).  The
 estimate has Pearson correlation of $0.99$ with the true $(\tzero)_k$ for each of
-the four polynomials, and below $0.07$ in absolute value with the $\tzero$ of an
-unrelated key; signing is randomized, so the third decimal varies between runs.  This simple estimator does not reach exact coefficients.
+the four polynomials.  With the $\tzero$ of an unrelated key the correlations are
+below $0.07$ in absolute value, consistent with zero (for $N = 256$ the null
+standard deviation is about $1/\sqrt{256} \approx 0.06$).  Signing is randomized,
+so the values vary slightly between runs.  This simple estimator does not reach exact coefficients.
 Azevedo Oliveira et al.\ \cite{azevedo2024uncompressing} do, with a finer
 method and 200,000 to 500,000 signatures; our estimate, obtained in
 simulation, is an independent and cruder confirmation of the leakage they
@@ -504,7 +504,9 @@ whose total hint weight falls outside a fixed public window and sign again.
 \EndFunction
 \end{algorithmic}
 
-The output verifies under unmodified FIPS~204.  We use a window of half-width
+The output verifies under unmodified FIPS~204.  Our harness signs a fresh
+message at each attempt rather than the same $\mu$; with randomized signing this
+does not change the distribution of the hint weight.  We use a window of half-width
 3 around the rounded grand mean: $[60, 66]$, $[35, 41]$ and $[54, 60]$, and
 measure it on the reference implementation with the same 200 keys.
 
@@ -611,8 +613,9 @@ signatures share information.  Both are unrelated to the hint weight.
         second-order effect would go unseen.
   \item \textbf{Simulations.}  Section~\ref{sec:oracle} relies on a Python
         model of the signing algorithm that is not byte-compatible with
-        FIPS~204; its $\mathsf{Decompose}$ also deviates at one boundary.  The
-        oracle is exact and noise-free; no device was measured.
+        FIPS~204 (hash inputs and encodings differ; $\mathsf{Decompose}$ and the
+        challenge sampler follow the standard).  The oracle is exact and
+        noise-free; no device was measured.
         Section~\ref{sec:fis} is an argument, without simulation.
   \item \textbf{Mitigation.}  Bounded-weight signing was evaluated for its
         effect on the hint weight only, not for its effect on the security
@@ -635,8 +638,8 @@ not threaten the signing key and is consistent with the known fact that
 $\tzero$ leaks from signatures.  The practical consequence we identify is a
 weak linkability fingerprint.  Fixed-iteration signing cannot change it
 (Section~\ref{sec:fis}); filtering on the total weight reduces the
-total-weight channel and leaves the per-polynomial one; we found no filter-based
-way to remove it entirely.
+total-weight channel and leaves the per-polynomial one; we did not evaluate a
+filter on the per-polynomial weights.
 
 \paragraph{Reproducibility.}
 The measurement harness (\texttt{hint\_collect.c}, with its deterministic

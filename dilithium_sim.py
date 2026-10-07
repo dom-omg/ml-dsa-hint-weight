@@ -1,6 +1,7 @@
 """
-Pure-Python Dilithium2 simulation (reference, not constant-time).
-Used for formal analysis — DO NOT use in production.
+Pure-Python model of ML-DSA signing (not constant-time, not byte-compatible
+with FIPS 204: hash inputs and encodings differ). Decompose and the challenge
+sampler follow FIPS 204. For the simulations of Section 6 only.
 
 Key output: (signature, rejection_count, hint_polynomial) for each signing call.
 """
@@ -193,36 +194,25 @@ def _sample_gamma1(seed: bytes, idx: int, p: DilithiumParams) -> list[int]:
 
 
 def _challenge(c_tilde: bytes, p: DilithiumParams) -> list[int]:
-    """Generate challenge polynomial with exactly TAU non-zero coefficients."""
-    signs_stream = int.from_bytes(c_tilde[:8], 'little')
-    h = hashlib.shake_256(c_tilde).digest(p.N)
+    """SampleInBall (FIPS 204, Algorithm 29): exactly TAU coefficients in {-1, +1}.
+
+    Same algorithm as the standard (Fisher-Yates with rejection on a SHAKE256
+    stream); the stream input is c_tilde as here produced by this model.
+    """
+    stream = hashlib.shake_256(c_tilde).digest(8 + 8 * p.N)
+    signs = int.from_bytes(stream[:8], "little")
+    pos = 8
     c = [0] * p.N
-    count = 0
-    i = p.N - 1
-    sign_pos = 0
-    indices = list(range(p.N))
-
-    used = set()
-    positions = []
-    for byte in h:
-        if len(positions) == p.TAU:
-            break
-        pos = byte % (i + 1)
-        if pos not in used:
-            positions.append(pos)
-            used.add(pos)
-
-    # Simpler: just use hash bytes as positions
-    positions = []
-    buf = hashlib.shake_256(c_tilde + b'challenge').digest(p.TAU * 4)
-    for idx in range(p.TAU):
-        pos = int.from_bytes(buf[idx * 4:(idx + 1) * 4], 'little') % p.N
-        positions.append(pos)
-
-    for k, pos in enumerate(positions):
-        sign = 1 if (signs_stream >> k) & 1 == 0 else -1
-        c[pos] = (c[pos] + sign) % p.Q
-
+    for k, i in enumerate(range(p.N - p.TAU, p.N)):
+        while True:
+            if pos >= len(stream):
+                stream += hashlib.shake_256(stream).digest(8 * p.N)
+            jj = stream[pos]
+            pos += 1
+            if jj <= i:
+                break
+        c[i] = c[jj]
+        c[jj] = (1 - 2 * ((signs >> k) & 1)) % p.Q
     return c
 
 

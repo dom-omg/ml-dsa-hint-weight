@@ -62,19 +62,20 @@ def power2round(a: list[int], D: int, Q: int) -> tuple[list[int], list[int]]:
 
 
 def decompose(a: list[int], GAMMA2: int, Q: int) -> tuple[list[int], list[int]]:
-    """Split a into (a1, a0) — high/low bits via GAMMA2."""
+    """FIPS 204 Decompose: a = a1 * 2*GAMMA2 + a0 with a1 in [0, (Q-1)/(2*GAMMA2) - 1]."""
     a1_out, a0_out = [], []
     ALPHA = 2 * GAMMA2
     for v in a:
         v = v % Q
-        a1 = (v + ALPHA // 2) // ALPHA
-        if a1 == (Q - 1) // ALPHA + 1:
-            a1 = 0
-            a0 = v % Q - Q
+        a0 = v % ALPHA
+        if a0 > ALPHA // 2:
+            a0 -= ALPHA
+        if v - a0 == Q - 1:
+            a1_out.append(0)
+            a0_out.append(a0 - 1)
         else:
-            a0 = v - a1 * ALPHA
-        a1_out.append(a1)
-        a0_out.append(a0)
+            a1_out.append((v - a0) // ALPHA)
+            a0_out.append(a0)
     return a1_out, a0_out
 
 

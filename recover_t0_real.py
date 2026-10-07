@@ -131,7 +131,7 @@ def recover_t0_from_ct0(
 
 # ─── Assumed oracle: exact ct0 values computed from sk.t0 ───────────────────
 
-def read_ct0_from_power_trace(
+def oracle_ct0(
     p: DilithiumParams,
     sk: SecretKey,
     n_obs: int = 1,
@@ -148,7 +148,7 @@ def read_ct0_from_power_trace(
     obs = []
 
     for msg_i in range(n_obs):
-        msg      = f"power_probe_{msg_i}".encode()
+        msg      = f"oracle_probe_{msg_i}".encode()
         mu       = hashlib.shake_256(sk.tr + msg).digest(64)
         rnd      = os.urandom(32)
         rhoprime = hashlib.shake_256(sk.key + rnd + mu).digest(64)
@@ -158,8 +158,7 @@ def read_ct0_from_power_trace(
         w1 = [decompose(w[k], p.GAMMA2, p.Q)[0] for k in range(p.K)]
         c  = _ch(hashlib.shake_256(mu + _pack_w1(w1, p)).digest(p.N // 4), p)
 
-        # ── POWER TRACE READ ─────────────────────────────────────────
-        # Attacker reads actual ct0[k][i] values from the trace
+        # Assumed oracle: exact c*t0 computed from the secret key
         ct0_vals = [
             [center(v, p.Q) for v in poly_mul(c, sk.t0[k], p.Q)]
             for k in range(p.K)
@@ -263,8 +262,8 @@ def main() -> None:
     print("ORACLE — 1 exact answer, computed from sk.t0")
     print(SEP)
     t0_w = time.time()
-    obs = read_ct0_from_power_trace(p, sk, n_obs=5)
-    print(f"  Collected : {len(obs)} traces  ({(time.time()-t0_w)*1000:.0f}ms)")
+    obs = oracle_ct0(p, sk, n_obs=1)
+    print(f"  Oracle answers : {len(obs)}  ({(time.time()-t0_w)*1000:.0f}ms)")
 
     # Recover t0
     t0_w = time.time()
@@ -288,9 +287,7 @@ def main() -> None:
         print()
         print("  NOT GIVEN: s1, s2")
         print("  t = 2^D * t1 + t0 is known once t0 is")
-        print("  t = A*s1 + s2 with ||s1||,||s2|| <= ETA=2 is MODULE-LWE")
-        print("  recovering s1, s2 from it is the Module-LWE problem")
-        print("  → This is the open research problem")
+        print("  recovering s1, s2 from t = A*s1 + s2 is the Module-LWE problem")
     else:
         print("  t0 recovery failed — check oracle implementation")
     print(BANNER)

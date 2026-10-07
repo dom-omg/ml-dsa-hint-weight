@@ -40,8 +40,7 @@ DILITHIUM5 = DilithiumParams(
     GAMMA1=(1 << 19), GAMMA2=(8380417 - 1) // 32, OMEGA=75,
 )
 
-# Reduced toy parameters for Z3 formal verification (tractable)
-# Calibrated to mirror Dilithium2 geometry with small N for Z3:
+# Reduced toy parameters (small N, tractable by exhaustive search):
 #   D=6 → t0 in [-32,31]; TAU=3 → max||ct0||_inf=96 > GAMMA2=88 → check-3 fires
 #   ETA=1, BETA=3 → GAMMA2-BETA=85 ≫ BETA → check-2 rarely fires
 #   OMEGA=8=N*K → hint check never fires
@@ -53,8 +52,8 @@ TINY = DilithiumParams(
     GAMMA1=512, GAMMA2=88, OMEGA=8,
 )
 
-# Full-recovery demo parameters — calibrated for Z3 uniqueness in all 3 phases:
-#   D=2  → t0 in [-2, 1]^(K*N),  4^8 = 65536 total → Z3-tractable for uniqueness
+# Toy parameters (small N, exhaustive search):
+#   D=2  → t0 in [-2, 1]^(K*N),  4^8 = 65536 total → tractable by exhaustive search
 #   GAMMA2=3 → TAU*max_t0=2*2=4 > 3 → check-3 fires ~30-70% of challenges
 #   ETA=1 → s1,s2 in [-1,1]^(L*N or K*N), 3^8 = 6561 → tractable
 #   GAMMA1=32, BETA=2 → |cs1_i| <= TAU*ETA=2, check-1 rarely fires

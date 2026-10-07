@@ -1,18 +1,15 @@
 """
-L2d Differential Key Test
-==========================
-Validation that passive t0 recovery is KEY-SPECIFIC.
+Section 6.1 of the paper: passive estimate of t0 from public signature data.
 
-Procedure:
-  1. Generate key A and key B (independent seeds)
-  2. Sign M messages with key A
-  3. Run L2d accumulator on those sigs (using only public data)
-  4. Report Pearson r of t0_hat against:
-       - t0_A (the correct key) → should be high (~0.99)
-       - t0_B (a different key) → should be ~0
+Procedure (Python model of the signing algorithm, dilithium_sim.py):
+  1. Generate key A and key B from independent seeds.
+  2. Sign M messages with key A.
+  3. Correlate the low bits of w' = Az - c*t1*2^d with the challenge,
+     using public data only, to estimate t0 up to a scale factor.
+  4. Report the Pearson correlation of the estimate with t0 of key A
+     (the signing key) and with t0 of key B (an unrelated key).
 
-If r_A >> r_B: signal is key-specific → real finding.
-If r_A ≈ r_B: signal is not key-specific → bug or artifact.
+Signing is randomized, so the third decimal of the correlations varies between runs.
 """
 
 import sys, os, hashlib
@@ -74,10 +71,9 @@ def poly_mul_np(a, b, Q):
 def lowbits_np(poly, GAMMA2, Q):
     ALPHA = 2 * GAMMA2
     p = poly % Q
-    a1 = (p + ALPHA // 2) // ALPHA
-    edge = (a1 == (Q - 1) // ALPHA + 1)
-    a0 = p - a1 * ALPHA
-    return np.where(edge, p - Q, a0).astype(np.int64)
+    r0 = p % ALPHA
+    r0 = np.where(r0 > ALPHA // 2, r0 - ALPHA, r0)
+    return np.where(p - r0 == Q - 1, r0 - 1, r0).astype(np.int64)
 
 # Accumulation
 acc = np.zeros((K, N), dtype=np.float64)
@@ -146,7 +142,7 @@ for k in range(K):
 
 print()
 if verdict:
-    print("  VERDICT: KEY-SPECIFIC. Signal is real, not an artifact.")
+    print("  RESULT: the estimate correlates with the correct key, not with the unrelated key.")
 else:
-    print("  VERDICT: NOT KEY-SPECIFIC. Bug or artifact — do not publish.")
+    print("  RESULT: the estimate does not distinguish the two keys.")
 print("=" * 60)

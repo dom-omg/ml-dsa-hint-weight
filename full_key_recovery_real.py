@@ -170,9 +170,9 @@ def phase1_recover_t0(p: DilithiumParams, sk: SecretKey) -> list[list[int]] | No
                 for i in range(p.N)
             ])
             t0_k = [center(int(v), p.Q) for v in x_vec]
-            if t0_k == t0_true[k]:
-                print(f"  k={k}: EXACT ✓")
-                t0_rec[k] = t0_k
+            # Accepted without looking at the key; the comparison is reported only.
+            t0_rec[k] = t0_k
+            print(f"  k={k}: {'equal to' if t0_k == t0_true[k] else 'DIFFERS from'} the generated t0")
 
         if all(r is not None for r in t0_rec):
             break
@@ -212,9 +212,9 @@ def phase3_recover_s1(p: DilithiumParams, sk: SecretKey) -> list[list[int]] | No
                 for i in range(p.N)
             ])
             s1_l = [center(int(v), p.Q) for v in x_vec]
-            if s1_l == s1_true[l]:
-                print(f"  l={l}: EXACT ✓")
-                s1_rec[l] = s1_l
+            # Accepted without looking at the key; the comparison is reported only.
+            s1_rec[l] = s1_l
+            print(f"  l={l}: {'equal to' if s1_l == s1_true[l] else 'DIFFERS from'} the generated s1")
 
         if all(r is not None for r in s1_rec):
             break

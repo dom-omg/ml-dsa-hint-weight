@@ -212,7 +212,7 @@ def report_variant(name: str, stem: str, tau: int, gamma2: int) -> None:
 
 def legacy_check() -> None:
     """Earlier independent ML-DSA-44 run (same C code, GCC 13.3.0, Linux 6.8.0 aarch64, 50 keys)."""
-    path = os.path.join(BASE, "IRONPROOF_50KEY_2000SIG_ANOVA.json")
+    path = os.path.join(BASE, "legacy_mldsa44_linux_50x2000.json")
     if not os.path.exists(path):
         print("legacy run: MISSING")
         return
